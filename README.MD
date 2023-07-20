@@ -55,6 +55,19 @@ Create a project first
 					'year': year,
 					'population': population
 				    }
+			
+			Here’s an example dealing with pagination by recursively calling the parse method
+			
+			    def parse(self, response):
+			        for product in response.xpath("//ul[@class='productlisting-ul']/div/li"):
+			            yield {
+			                'title': product.xpath(".//a[@class='p_box_title']/text()").get(),
+			                'url': response.urljoin(product.xpath(".//a[@class='p_box_title']/@href").get()),
+			                'discoutned_price': product.xpath(".//div[@class='p_box_price']/span[1]/text()").get(),
+			                'original_price': product.xpath(".//div[@class='p_box_price']/span[2]/text()").get(),
+			            }
+			
+			        next_page = response.xpath("//a[@class='nextPage']/@href").get()
 
 Then test the crawler
 	In the terminal, make sure you’re in the same directory as the scrapy.cfg file (the top level project folder) and type
@@ -92,9 +105,31 @@ From ProjectName folder (ensure you have ipython installed) you can launch the s
 				title = response.xpath(“//h1”)[1], and to get the text you could then …
 				title.get() or if the expression returns multiple things title.getall()
 
-To export data do something like
+To spoof request headers you have a few options
+	To set the user agent in the settings.py file either
+		USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+		Or if you want to set multiple request headers
+		DEFAULT_REQUEST_HEADERS = {
+		     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+		 }
+	To set the user agent in the spider class file, override the start_requests method to include a header
+		def start_requests(self):
+			yield scrapy.Request(
+		url='https://web.archive.org/web/20190324163700/http://www.tinydeal.com/specials.html', 
+		callback=self.parse, 
+		headers={ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36' })
+		
+		Although note that in a previous example where we recursively called parse we yielded a request so you would need to include the UA string in that too, see tinydeal spider for full code
+			if next_page:
+				    yield scrapy.Request(url=next_page, callback=self.parse, headers={
+					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+				    })
+
+To export data do one of the following from the command line
 	scrapy crawl countries -o population_dataset.json
 	or
 	scrapy crawl countries -o population_dataset.csv
 	or
 	scrapy crawl countries -o population_dataset.xml
+If you are getting utf-8 codes in exports you can also fix this with the following line in the settings.py file
+FEED_EXPORT_ENCODING = 'utf-8'
